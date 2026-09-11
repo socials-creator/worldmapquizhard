@@ -1,161 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-
-  <meta name="theme-color" content="#f5f5f7">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Tic Tac Toe">
-
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css">
-
-  <title>Tic Tac Toe</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Where in the World — Geography Pointing Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<main class="app">
+<div class="app">
 
+  <!-- ===== Top bar: brand + hamburger ===== -->
   <header class="topbar">
-    <div>
-      <div class="eyebrow">TIC TAC TOE</div>
-      <h1>5 × 5</h1>
+    <div class="brand">
+      <span class="brand-mark">🌐</span>
+      <span class="brand-name">Where in the World</span>
     </div>
-
-    <button id="themeBtn"
-            class="icon-btn"
-            aria-label="Toggle appearance">
-      ☼
-    </button>
+    <!-- Landscape sidebar toggle (only shown in landscape) -->
+    <button class="btn-icon btn-sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">⊞</button>
+    <button class="btn-icon" id="menu-toggle" aria-label="Open high score & info">☰</button>
   </header>
 
-
-  <section class="score-card">
-
-    <div>
-      <span>You</span>
-      <strong id="userScore">0</strong>
+  <!-- ===== Portrait layout: control row + history strip (hidden in landscape) ===== -->
+  <div class="portrait-controls">
+    <div class="control-row">
+      <button class="btn-primary" id="new-game-btn">New game</button>
+      <div class="live-stats">
+        <div class="stat"><span class="stat-label">Found</span><span class="stat-value" id="live-score">0</span></div>
+        <div class="stat"><span class="stat-label">Missed</span><span class="stat-value" id="live-mistakes">0 / 5</span></div>
+        <div class="stat"><span class="stat-label">Left</span><span class="stat-value" id="live-remaining">—</span></div>
+      </div>
     </div>
 
-    <div class="divider"></div>
-
-    <div>
-      <span>Draws</span>
-      <strong id="drawScore">0</strong>
+    <div class="history-strip">
+      <span class="history-strip-label">Last 10</span>
+      <ol class="history-scroller" id="history-list-portrait">
+        <li class="history-empty">No games yet.</li>
+      </ol>
     </div>
+  </div>
 
-    <div class="divider"></div>
+  <!-- ===== Main layout ===== -->
+  <div class="layout">
 
-    <div>
-      <span>Computer</span>
-      <strong id="cpuScore">0</strong>
-    </div>
+    <!-- ===== Landscape sidebar (left panel, only shown in landscape) ===== -->
+    <aside class="landscape-sidebar" id="landscape-sidebar">
+      <div class="ls-section">
+        <button class="btn-primary ls-new-game" id="new-game-btn-ls">New game</button>
+      </div>
 
-  </section>
+      <div class="ls-section ls-prompt-section" id="ls-prompt-section">
+        <div class="ls-label">Find this country</div>
+        <div class="ls-country" id="ls-prompt-country">🌍</div>
+        <button class="skip-chip ls-skip" id="skip-btn-ls" disabled>Skip →</button>
+      </div>
 
+      <div class="ls-section ls-stats-section">
+        <div class="ls-stat-row">
+          <span class="ls-stat-label">Found</span>
+          <span class="ls-stat-value" id="ls-score">0</span>
+        </div>
+        <div class="ls-stat-row">
+          <span class="ls-stat-label">Missed</span>
+          <span class="ls-stat-value" id="ls-mistakes">0 / 5</span>
+        </div>
+        <div class="ls-stat-row">
+          <span class="ls-stat-label">Remaining</span>
+          <span class="ls-stat-value" id="ls-remaining">—</span>
+        </div>
+      </div>
 
-  <section class="status">
-    <div id="statusDot" class="status-dot"></div>
-    <span id="statusText">Your turn</span>
-  </section>
+      <div class="ls-section ls-history-section">
+        <div class="ls-label">Last 10 games</div>
+        <ol class="ls-history-list" id="history-list-landscape">
+          <li class="history-empty">No games yet.</li>
+        </ol>
+      </div>
+    </aside>
 
+    <main class="map-stage">
+      <!-- Portrait prompt card (hidden in landscape) -->
+      <div class="prompt-card portrait-only" id="prompt-card">
+        <span class="prompt-country" id="prompt-country">🌍</span>
+        <button class="skip-chip" id="skip-btn" disabled>Skip →</button>
+      </div>
 
-  <section id="board"
-           class="board"
-           aria-label="5 by 5 Tic Tac Toe board">
+      <div class="feedback-toast" id="feedback-toast"></div>
 
-    <button class="cell" data-index="0"></button>
-    <button class="cell" data-index="1"></button>
-    <button class="cell" data-index="2"></button>
-    <button class="cell" data-index="3"></button>
-    <button class="cell" data-index="4"></button>
+      <div id="map" class="map-canvas"></div>
 
-    <button class="cell" data-index="5"></button>
-    <button class="cell" data-index="6"></button>
-    <button class="cell" data-index="7"></button>
-    <button class="cell" data-index="8"></button>
-    <button class="cell" data-index="9"></button>
+      <div class="zoom-controls">
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-reset" aria-label="Reset zoom">⤾</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+      </div>
+    </main>
 
-    <button class="cell" data-index="10"></button>
-    <button class="cell" data-index="11"></button>
-    <button class="cell" data-index="12"></button>
-    <button class="cell" data-index="13"></button>
-    <button class="cell" data-index="14"></button>
+    <!-- ===== Secondary drawer: High score + About ===== -->
+    <aside class="drawer" id="sidebar">
+      <button class="btn-icon drawer-close" id="drawer-close" aria-label="Close">✕</button>
 
-    <button class="cell" data-index="15"></button>
-    <button class="cell" data-index="16"></button>
-    <button class="cell" data-index="17"></button>
-    <button class="cell" data-index="18"></button>
-    <button class="cell" data-index="19"></button>
+      <section class="panel">
+        <h2 class="panel-title">Highest score ever</h2>
+        <div class="high-score">
+          <span class="high-score-number" id="high-score-number">0</span>
+          <span class="high-score-out-of" id="high-score-outof">countries</span>
+        </div>
+      </section>
 
-    <button class="cell" data-index="20"></button>
-    <button class="cell" data-index="21"></button>
-    <button class="cell" data-index="22"></button>
-    <button class="cell" data-index="23"></button>
-    <button class="cell" data-index="24"></button>
+      <section class="panel">
+        <h2 class="panel-title">How a round works</h2>
+        <p class="panel-copy">
+          Tap the country you're shown. A round covers all ~197 UN member countries.
+          You stay in one continent for a bit, then occasionally jump somewhere new.
+          Miss or skip one, and the map pans to show you where it was. End the round
+          by finding every country, or after 5 misses — whichever comes first.
+        </p>
+      </section>
 
-    <div id="winLine" class="win-line"></div>
+      <section class="panel">
+        <h2 class="panel-title">Map legend</h2>
+        <p class="panel-copy">
+          <span class="legend-swatch"></span> Jammu and Kashmir, Ladakh are Union
+          territories of India (including Siachen Glacier, Disputed regions — China-administered
+          Kashmir, Pakistan-administered Kashmir) which are legally an integral
+          part of India. However, regrettably, due to sources of the map being outside
+          India's jurisdiction, the map does not reflect its full intent — borders
+          here are simplified reference lines, not a political statement.
+        </p>
+      </section>
+    </aside>
 
-  </section>
-
-
-  <button id="newGameBtn" class="primary-btn">
-    New Game
-  </button>
-
-  <button id="resetScoreBtn" class="secondary-btn">
-    Reset Score
-  </button>
-
-
-  <p class="footer">
-    You play as <b>×</b> · Computer plays <b>○</b>
-  </p>
-
-</main>
-
-
-<!-- GAME RESULT -->
-
-<div id="resultModal" class="modal hidden">
-
-  <div class="backdrop"></div>
-
-  <section class="result-card">
-
-    <div id="resultIcon" class="result-icon">×</div>
-
-    <div id="resultTitle" class="result-title">
-      You Win!
-    </div>
-
-    <p id="resultSubtitle">
-      Brilliant move.
-    </p>
-
-    <button id="playAgainBtn" class="primary-btn">
-      Play Again
-    </button>
-
-  </section>
-
+  </div>
 </div>
 
+<div class="drawer-scrim" id="drawer-scrim"></div>
 
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <h2 id="result-title">Game complete</h2>
+    <p class="result-score" id="result-score">0</p>
+    <p class="result-copy" id="result-copy"></p>
+    <button class="btn-primary" id="play-again-btn">Play again</button>
+    <button class="btn-ghost" id="close-result-btn">Close</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <script src="script.js"></script>
-
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js");
-  });
-}
-</script>
-
 </body>
 </html>
