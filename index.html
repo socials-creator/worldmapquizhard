@@ -26,6 +26,10 @@
 
   <!-- ===== Portrait layout: control row + history strip (hidden in landscape) ===== -->
   <div class="portrait-controls">
+    <div class="mode-row" role="tablist" aria-label="Game mode">
+      <button class="mode-btn active" id="mode-countries-btn" role="tab" aria-selected="true">🌍 Countries</button>
+      <button class="mode-btn" id="mode-islands-btn" role="tab" aria-selected="false">🏝️ Islands</button>
+    </div>
     <div class="control-row">
       <button class="btn-primary" id="new-game-btn">New game</button>
       <div class="live-stats">
@@ -49,11 +53,15 @@
     <!-- ===== Landscape sidebar (left panel, only shown in landscape) ===== -->
     <aside class="landscape-sidebar" id="landscape-sidebar">
       <div class="ls-section">
+        <div class="ls-mode-row" role="tablist" aria-label="Game mode">
+          <button class="mode-btn active" id="mode-countries-btn-ls" role="tab" aria-selected="true">🌍 Countries</button>
+          <button class="mode-btn" id="mode-islands-btn-ls" role="tab" aria-selected="false">🏝️ Islands</button>
+        </div>
         <button class="btn-primary ls-new-game" id="new-game-btn-ls">New game</button>
       </div>
 
       <div class="ls-section ls-prompt-section" id="ls-prompt-section">
-        <div class="ls-label">Find this country</div>
+        <div class="ls-label" id="ls-find-label">Find this country</div>
         <div class="ls-country" id="ls-prompt-country">🌍</div>
         <button class="skip-chip ls-skip" id="skip-btn-ls" disabled>Skip →</button>
       </div>
@@ -118,6 +126,17 @@
           You stay in one continent for a bit, then occasionally jump somewhere new.
           Miss or skip one, and the map pans to show you where it was. End the round
           by finding every country, or after 5 misses — whichever comes first.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Islands mode</h2>
+        <p class="panel-copy">
+          Switch to Islands to test your sense of scale — from a giant
+          like Australia down to the tiniest Pacific atolls. Tap
+          anywhere near the island you're shown. A miss or skip pans
+          into a slow, deliberate zoom on the real spot and holds
+          there, so you actually learn where it is before the next one.
         </p>
       </section>
 

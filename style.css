@@ -113,6 +113,49 @@ html, body {
   white-space: nowrap;
 }
 
+/* ========== Mode toggle (Countries / Islands) ========== */
+
+.mode-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+  background: var(--paper);
+}
+
+.ls-mode-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--cream);
+  color: var(--ink-soft);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.ls-mode-row .mode-btn {
+  font-size: 0.72rem;
+  padding: 7px 6px;
+}
+
+.mode-btn:hover { border-color: var(--terracotta); }
+
+.mode-btn.active {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff;
+}
+
 .live-stats {
   display: flex;
   gap: 18px;
@@ -302,7 +345,7 @@ html, body {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #EAF2F1 0%, #E7EEE8 100%);
+  background: var(--darkmode); /* ocean, #1C1C1C */
 }
 
 .map-canvas {
@@ -364,6 +407,49 @@ html, body {
   stroke-width: 0.4;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+/* ========== Islands mode: point markers ========== */
+/* Markers live in their own layer above the map and never intercept
+   taps — the game logic reads the click coordinate directly, not the
+   marker. */
+
+.marker-layer, .island-marker { pointer-events: none; }
+
+.island-marker-dot {
+  vector-effect: non-scaling-stroke;
+}
+
+.island-marker-target .island-marker-dot { fill: var(--good); }
+.island-marker-correct .island-marker-dot { fill: var(--good); }
+
+.island-marker-ring {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.island-marker-target .island-marker-ring,
+.island-marker-correct .island-marker-ring {
+  stroke: var(--good);
+  animation: islandPulse 1.5s ease-out infinite;
+}
+
+.island-marker-correct .island-marker-ring { animation-iteration-count: 1; }
+
+.island-marker-miss-line {
+  stroke: var(--bad);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes islandPulse {
+  0%   { transform: scale(0.5); opacity: 0.9; }
+  75%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
 /* ========== Portrait prompt card ========== */

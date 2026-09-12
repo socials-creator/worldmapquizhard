@@ -29,6 +29,13 @@ const SAME_CONTINENT_PROBABILITY = 0.72;
 const REVEAL_ZOOM_MS = 650;
 const REVEAL_HOLD_MS = 1700;
 
+// Islands mode reveals a point, not a shape, so the animation is
+// deliberately slower and holds longer than the countries reveal —
+// the whole point is to give the player time to actually place it.
+const ISLAND_REVEAL_ZOOM_MS = 1500;
+const ISLAND_REVEAL_HOLD_MS = 2800;
+const ISLAND_SNAP_BACK_MS = 700;
+
 // Tap detection: these thresholds work for both mouse and touch.
 // We use SVG-space coordinates now (see handlePointerUp) so movement
 // thresholds don't need to compensate for device-pixel-ratio differences.
@@ -37,6 +44,8 @@ const TAP_MAX_DURATION_MS = 600;
 
 const STORAGE_HISTORY_KEY = "geoGame.history.v6";
 const STORAGE_HIGH_KEY = "geoGame.highScore.v6";
+const STORAGE_HISTORY_KEY_ISLANDS = "geoGame.history.islands.v1";
+const STORAGE_HIGH_KEY_ISLANDS = "geoGame.highScore.islands.v1";
 
 /* ---------- Disputed regions (Kashmir etc.) ---------- */
 
@@ -137,6 +146,99 @@ const DEPENDENCY_PARENT = {
   "Åland":"Finland","Aland":"Finland","Åland Islands":"Finland",
 };
 
+/* ---------- Islands mode data ----------
+   Islands aren't separate tappable shapes in the underlying country
+   topology (most are part of a bigger country polygon, or too small
+   to exist at 50m resolution at all), so this mode works differently
+   from Countries: we store each island as a point (lon/lat), hit-test
+   a tap by real-world distance to that point, and reveal misses/skips
+   by panning to the exact coordinate instead of flashing a shape.
+
+   "tier" sets both the tap-tolerance radius (generous for a huge
+   landmass like Australia, tight for a coral atoll) and how far we
+   zoom in on reveal, so a tiny island is actually visible once shown. */
+
+const ISLAND_TIERS = {
+  giant:  { radiusKm: 550, zoom: 3 },
+  large:  { radiusKm: 400, zoom: 5 },
+  medium: { radiusKm: 300, zoom: 8 },
+  small:  { radiusKm: 220, zoom: 12 },
+  tiny:   { radiusKm: 160, zoom: 18 },
+};
+
+const ISLANDS = [
+  { name: "Australia", lon: 133.7751, lat: -25.2744, region: "Australia & NZ", tier: "giant" },
+  { name: "Greenland", lon: -42.6043, lat: 71.7069, region: "Arctic", tier: "giant" },
+  { name: "New Guinea", lon: 141.0, lat: -5.0, region: "Melanesia", tier: "giant" },
+  { name: "Borneo", lon: 114.0, lat: 0.5, region: "Southeast Asia", tier: "giant" },
+  { name: "Madagascar", lon: 46.8691, lat: -18.7669, region: "Indian Ocean", tier: "giant" },
+  { name: "Baffin Island", lon: -70.0, lat: 68.0, region: "Arctic", tier: "giant" },
+  { name: "Sumatra", lon: 101.5, lat: -0.5, region: "Southeast Asia", tier: "giant" },
+  { name: "Honshu", lon: 138.0, lat: 36.5, region: "East Asia", tier: "large" },
+  { name: "Great Britain", lon: -2.0, lat: 54.0, region: "Europe", tier: "large" },
+  { name: "Victoria Island", lon: -108.0, lat: 71.0, region: "Arctic", tier: "large" },
+  { name: "Ellesmere Island", lon: -80.0, lat: 79.0, region: "Arctic", tier: "large" },
+  { name: "Sulawesi", lon: 121.0, lat: -2.0, region: "Southeast Asia", tier: "large" },
+  { name: "South Island (NZ)", lon: 170.5, lat: -43.6, region: "Australia & NZ", tier: "large" },
+  { name: "Java", lon: 110.0, lat: -7.5, region: "Southeast Asia", tier: "large" },
+  { name: "North Island (NZ)", lon: 175.5, lat: -39.0, region: "Australia & NZ", tier: "large" },
+  { name: "Newfoundland", lon: -56.0, lat: 49.0, region: "North Atlantic", tier: "large" },
+  { name: "Cuba", lon: -77.8, lat: 21.5, region: "Caribbean", tier: "large" },
+  { name: "Iceland", lon: -19.0, lat: 64.9, region: "North Atlantic", tier: "large" },
+  { name: "Luzon", lon: 121.0, lat: 16.0, region: "Southeast Asia", tier: "large" },
+  { name: "Sri Lanka", lon: 80.7, lat: 7.5, region: "Indian Ocean", tier: "medium" },
+  { name: "Sakhalin", lon: 143.0, lat: 51.0, region: "East Asia", tier: "medium" },
+  { name: "Hispaniola", lon: -71.0, lat: 19.0, region: "Caribbean", tier: "medium" },
+  { name: "Tasmania", lon: 146.8, lat: -42.0, region: "Australia & NZ", tier: "medium" },
+  { name: "Sicily", lon: 14.0, lat: 37.6, region: "Mediterranean", tier: "medium" },
+  { name: "Ireland", lon: -8.0, lat: 53.4, region: "Europe", tier: "medium" },
+  { name: "Hokkaido", lon: 143.0, lat: 43.5, region: "East Asia", tier: "medium" },
+  { name: "Hawaiʻi (Big Island)", lon: -155.5, lat: 19.6, region: "Pacific", tier: "medium" },
+  { name: "Cyprus", lon: 33.2, lat: 35.1, region: "Mediterranean", tier: "medium" },
+  { name: "Puerto Rico", lon: -66.5, lat: 18.2, region: "Caribbean", tier: "medium" },
+  { name: "Jamaica", lon: -77.3, lat: 18.1, region: "Caribbean", tier: "medium" },
+  { name: "Corsica", lon: 9.1, lat: 42.2, region: "Mediterranean", tier: "small" },
+  { name: "Crete", lon: 24.8, lat: 35.2, region: "Mediterranean", tier: "small" },
+  { name: "Sardinia", lon: 9.0, lat: 40.1, region: "Mediterranean", tier: "small" },
+  { name: "Bali", lon: 115.2, lat: -8.4, region: "Southeast Asia", tier: "small" },
+  { name: "Fiji (Viti Levu)", lon: 178.0, lat: -17.7, region: "Pacific", tier: "small" },
+  { name: "Trinidad", lon: -61.3, lat: 10.5, region: "Caribbean", tier: "small" },
+  { name: "Zanzibar", lon: 39.2, lat: -6.2, region: "Indian Ocean", tier: "small" },
+  { name: "Guam", lon: 144.8, lat: 13.4, region: "Pacific", tier: "small" },
+  { name: "Espiritu Santo (Vanuatu)", lon: 166.9, lat: -15.3, region: "Pacific", tier: "small" },
+  { name: "Bermuda", lon: -64.75, lat: 32.3, region: "North Atlantic", tier: "small" },
+  { name: "Malta", lon: 14.4, lat: 35.9, region: "Mediterranean", tier: "small" },
+  { name: "Malé Atoll (Maldives)", lon: 73.5, lat: 4.2, region: "Indian Ocean", tier: "small" },
+  { name: "Galápagos (Isabela)", lon: -91.1, lat: -0.8, region: "Pacific", tier: "small" },
+  { name: "Guadalcanal (Solomon Is.)", lon: 160.15, lat: -9.6, region: "Pacific", tier: "small" },
+  { name: "Mahé (Seychelles)", lon: 55.45, lat: -4.6, region: "Indian Ocean", tier: "tiny" },
+  { name: "Upolu (Samoa)", lon: -171.75, lat: -13.9, region: "Pacific", tier: "tiny" },
+  { name: "Tongatapu (Tonga)", lon: -175.2, lat: -21.1, region: "Pacific", tier: "tiny" },
+  { name: "Koror (Palau)", lon: 134.5, lat: 7.3, region: "Pacific", tier: "tiny" },
+  { name: "Majuro (Marshall Is.)", lon: 171.2, lat: 7.1, region: "Pacific", tier: "tiny" },
+  { name: "Tarawa (Kiribati)", lon: 173.0, lat: 1.4, region: "Pacific", tier: "tiny" },
+  { name: "Nauru", lon: 166.9, lat: -0.53, region: "Pacific", tier: "tiny" },
+  { name: "Funafuti (Tuvalu)", lon: 179.2, lat: -8.5, region: "Pacific", tier: "tiny" },
+  { name: "Niue", lon: -169.9, lat: -19.05, region: "Pacific", tier: "tiny" },
+  { name: "Pitcairn Island", lon: -130.1, lat: -25.07, region: "Pacific", tier: "tiny" },
+  { name: "Easter Island (Rapa Nui)", lon: -109.35, lat: -27.1, region: "Pacific", tier: "tiny" },
+].map((isl) => Object.assign({}, isl, ISLAND_TIERS[isl.tier]));
+
+const islandIndices = ISLANDS.map((_, i) => i);
+const islandRegionOf = ISLANDS.map((isl) => isl.region);
+
+/* Distance between two lon/lat points in kilometres (haversine). Used
+   to hit-test island taps — a real-world distance threshold stays
+   consistent no matter how the player has panned or zoomed. */
+function haversineKm(lon1, lat1, lon2, lat2) {
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /* ---------- DOM refs ---------- */
 
 const els = {
@@ -149,6 +251,8 @@ const els = {
   promptCountry: document.getElementById("prompt-country"),
   skipBtn: document.getElementById("skip-btn"),
   newGameBtn: document.getElementById("new-game-btn"),
+  modeCountriesBtn: document.getElementById("mode-countries-btn"),
+  modeIslandsBtn: document.getElementById("mode-islands-btn"),
   // Landscape stats
   lsScore: document.getElementById("ls-score"),
   lsMistakes: document.getElementById("ls-mistakes"),
@@ -157,6 +261,9 @@ const els = {
   lsSkipBtn: document.getElementById("skip-btn-ls"),
   lsNewGameBtn: document.getElementById("new-game-btn-ls"),
   lsPromptSection: document.getElementById("ls-prompt-section"),
+  lsFindLabel: document.getElementById("ls-find-label"),
+  modeCountriesBtnLs: document.getElementById("mode-countries-btn-ls"),
+  modeIslandsBtnLs: document.getElementById("mode-islands-btn-ls"),
   landscapeSidebar: document.getElementById("landscape-sidebar"),
   sidebarToggle: document.getElementById("sidebar-toggle"),
   // Shared
@@ -221,6 +328,9 @@ const g = svg.append("g");
 const countryLayer = g.append("g").attr("class", "country-layer");
 const disputedLayer = g.append("g").attr("class", "disputed-layer");
 const hitLayer = g.append("g").attr("class", "hit-layer");
+// Islands-mode point markers. Sits above the hit layer but is fully
+// pointer-events:none (see CSS) so it never steals a tap from the map.
+const markerLayer = g.append("g").attr("class", "marker-layer");
 
 const projection = d3.geoNaturalEarth1();
 const path = d3.geoPath(projection);
@@ -272,6 +382,9 @@ function handleResize() {
   countryLayer.selectAll("path.country").attr("d", path);
   disputedLayer.selectAll("path.disputed-region").attr("d", path);
   hitLayer.selectAll("path.hit-target").attr("d", path);
+  // Island markers are positioned from raw projected coordinates, not
+  // redrawn via `path`, so a resize invalidates them — just clear them.
+  markerLayer.selectAll("*").remove();
 
   // Reset zoom so the stale transform doesn't offset taps
   svg.call(zoomBehavior.transform, d3.zoomIdentity);
@@ -323,8 +436,16 @@ let nameOf = [];
 let sovereignIndices = [];
 let parentIndexOf = [];
 
+// "countries" | "islands" — see setGameMode() below.
+let gameMode = "countries";
+
+function totalForMode() {
+  return gameMode === "islands" ? islandIndices.length : sovereignIndices.length;
+}
+
 let game = {
   active: false,
+  locked: false, // true while a turn's result is resolving/animating
   score: 0,
   mistakes: 0,
   targetIndex: null,
@@ -514,7 +635,13 @@ function drawMap() {
       const idx = pointerDownInfo.index;
       pointerDownInfo = null;
       if (dist <= TAP_MAX_MOVE_PX && dt <= TAP_MAX_DURATION_MS) {
-        handleCountryClick(idx);
+        // Islands mode doesn't care which country shape was under the
+        // tap — it scores by real-world distance to the target's point.
+        if (gameMode === "islands") {
+          handleIslandClick(svgPoint);
+        } else {
+          handleCountryClick(idx);
+        }
       }
     })
     .on("pointercancel", () => { pointerDownInfo = null; })
@@ -585,10 +712,16 @@ function syncSkipDisabled(disabled) {
 /* ---------- Game flow ---------- */
 
 function doSkip() {
-  if (!game.active) return;
+  if (!game.active || game.locked) return;
+  game.locked = true;
   game.mistakes++;
-  showToast(`It was ${nameOf[game.targetIndex]}`, "bad");
-  revealCountry(game.targetIndex);
+  if (gameMode === "islands") {
+    showToast(`It was ${ISLANDS[game.targetIndex].name}`, "bad");
+    revealIsland(game.targetIndex);
+  } else {
+    showToast(`It was ${nameOf[game.targetIndex]}`, "bad");
+    revealCountry(game.targetIndex);
+  }
   finishTurn(false);
 }
 
@@ -599,21 +732,64 @@ els.closeResultBtn.addEventListener("click", closeResult);
 els.skipBtn.addEventListener("click", doSkip);
 els.lsSkipBtn.addEventListener("click", doSkip);
 
-function startGame() {
-  if (!sovereignIndices.length) return;
+/* ---------- Mode toggle (Countries / Islands) ---------- */
 
-  assignColors();
-  countryLayer.selectAll("path.country").attr("fill", d => colorForIndex(d.__colorIndex));
-  const indiaIdxForRepaint = features.findIndex(f => f.properties.name === "India");
-  indiaColorIndex = indiaIdxForRepaint >= 0 ? features[indiaIdxForRepaint].__colorIndex : 0;
-  disputedLayer.selectAll("path.disputed-region").attr("fill", colorForIndex(indiaColorIndex));
+function setGameMode(mode) {
+  if (mode === gameMode) return;
+  gameMode = mode;
+
+  // Switching modes mid-round would mix two different scoring systems
+  // into one round, so we quietly end any in-progress round (it wasn't
+  // finished, so it isn't saved to history) rather than try to carry
+  // it over. The player just presses New game again.
+  if (game.active) {
+    game.active = false;
+    game.locked = false;
+    markerLayer.selectAll("*").remove();
+    svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+    syncSkipDisabled(true);
+    syncPrompt(mode === "islands" ? "🏝️" : "🌍");
+    syncStats();
+  }
+
+  updateModeButtons();
+  if (els.lsFindLabel) els.lsFindLabel.textContent = mode === "islands" ? "Find this island" : "Find this country";
+  loadHighScore();
+  renderHistory();
+}
+
+function updateModeButtons() {
+  const isIslands = gameMode === "islands";
+  [els.modeCountriesBtn, els.modeCountriesBtnLs].forEach(b => b && b.classList.toggle("active", !isIslands));
+  [els.modeIslandsBtn, els.modeIslandsBtnLs].forEach(b => b && b.classList.toggle("active", isIslands));
+  [els.modeCountriesBtn, els.modeCountriesBtnLs].forEach(b => b && b.setAttribute("aria-selected", String(!isIslands)));
+  [els.modeIslandsBtn, els.modeIslandsBtnLs].forEach(b => b && b.setAttribute("aria-selected", String(isIslands)));
+}
+
+if (els.modeCountriesBtn) els.modeCountriesBtn.addEventListener("click", () => setGameMode("countries"));
+if (els.modeIslandsBtn) els.modeIslandsBtn.addEventListener("click", () => setGameMode("islands"));
+if (els.modeCountriesBtnLs) els.modeCountriesBtnLs.addEventListener("click", () => setGameMode("countries"));
+if (els.modeIslandsBtnLs) els.modeIslandsBtnLs.addEventListener("click", () => setGameMode("islands"));
+
+function startGame() {
+  if (!totalForMode()) return;
+
+  if (gameMode === "countries") {
+    assignColors();
+    countryLayer.selectAll("path.country").attr("fill", d => colorForIndex(d.__colorIndex));
+    const indiaIdxForRepaint = features.findIndex(f => f.properties.name === "India");
+    indiaColorIndex = indiaIdxForRepaint >= 0 ? features[indiaIdxForRepaint].__colorIndex : 0;
+    disputedLayer.selectAll("path.disputed-region").attr("fill", colorForIndex(indiaColorIndex));
+  }
+  markerLayer.selectAll("*").remove();
 
   game = {
     active: true,
+    locked: false,
     score: 0,
     mistakes: 0,
     targetIndex: null,
-    remaining: sovereignIndices.slice(),
+    remaining: (gameMode === "islands" ? islandIndices : sovereignIndices).slice(),
     asked: [],
   };
   syncSkipDisabled(false);
@@ -624,15 +800,19 @@ function startGame() {
 function pickNext() {
   if (!game.remaining.length) { endGame("completed"); return; }
 
+  game.locked = false;
+  markerLayer.selectAll("*").remove();
+
   const prev = game.targetIndex;
+  const groupOf = gameMode === "islands" ? islandRegionOf : continentOf;
   let pool;
 
   if (prev === null) {
     pool = game.remaining;
   } else {
-    const sameContinent = game.remaining.filter(i => continentOf[i] === continentOf[prev]);
-    const jump = Math.random() > SAME_CONTINENT_PROBABILITY || sameContinent.length === 0;
-    pool = jump ? game.remaining : sameContinent;
+    const sameGroup = game.remaining.filter(i => groupOf[i] === groupOf[prev]);
+    const jump = Math.random() > SAME_CONTINENT_PROBABILITY || sameGroup.length === 0;
+    pool = jump ? game.remaining : sameGroup;
   }
 
   const next = pool[Math.floor(Math.random() * pool.length)];
@@ -640,17 +820,18 @@ function pickNext() {
   game.remaining = game.remaining.filter(i => i !== next);
   game.asked.push(next);
 
-  syncPrompt(nameOf[next]);
+  syncPrompt(gameMode === "islands" ? ISLANDS[next].name : nameOf[next]);
   syncStats();
 }
 
 function handleCountryClick(clickedIndex) {
-  if (!game.active) return;
+  if (!game.active || game.locked) return;
   if (clickedIndex === null || clickedIndex === undefined || clickedIndex < 0) return;
 
   const target = game.targetIndex;
   const resolved = resolveSovereignIndex(clickedIndex);
   const isCorrect = resolved === target;
+  game.locked = true;
 
   if (isCorrect) {
     game.score++;
@@ -694,15 +875,107 @@ function revealCountry(index) {
   );
 }
 
+/* ---------- Islands mode: click handling + reveal ----------
+   There's no polygon to hit-test against, so a tap is scored purely by
+   real-world distance from where the player tapped to the island's
+   coordinate (see haversineKm above). This also means we don't know or
+   care what the player *did* tap on — right country, wrong country,
+   open ocean — only how close it was to the actual target. */
+
+function handleIslandClick(svgPoint) {
+  if (!game.active || game.locked) return;
+
+  const t = d3.zoomTransform(svg.node());
+  const projPoint = t.invert([svgPoint.x, svgPoint.y]);
+  const lonlat = projection.invert(projPoint);
+  if (!lonlat) return; // tapped outside the globe outline — not a real click
+
+  const target = ISLANDS[game.targetIndex];
+  const distKm = haversineKm(lonlat[0], lonlat[1], target.lon, target.lat);
+  const isCorrect = distKm <= target.radiusKm;
+  game.locked = true;
+
+  if (isCorrect) {
+    game.score++;
+    showToast("Correct! ✓", "good");
+    dropIslandMarker(target.lon, target.lat, "correct");
+    finishTurn(true);
+  } else {
+    game.mistakes++;
+    showToast(`Not quite — here's ${target.name}`, "bad");
+    dropIslandMarker(lonlat[0], lonlat[1], "miss");
+    revealIsland(game.targetIndex);
+    finishTurn(false);
+  }
+}
+
+/* Draws a small marker at a lon/lat inside the (already-zoomed) map
+   group, so it tracks pan/zoom exactly like the country paths do.
+   kind: "correct" (brief green pulse where the island actually is),
+   "miss" (brief red X where the player actually tapped), or "target"
+   (the slow, held green pulse used during a wrong/skip reveal). */
+function dropIslandMarker(lon, lat, kind) {
+  const p = projection([lon, lat]);
+  if (!p) return;
+  const [x, y] = p;
+
+  const marker = markerLayer.append("g")
+    .attr("class", `island-marker island-marker-${kind}`)
+    .attr("transform", `translate(${x},${y})`);
+
+  if (kind === "miss") {
+    const s = 7;
+    marker.append("line").attr("class", "island-marker-miss-line").attr("x1", -s).attr("y1", -s).attr("x2", s).attr("y2", s);
+    marker.append("line").attr("class", "island-marker-miss-line").attr("x1", -s).attr("y1", s).attr("x2", s).attr("y2", -s);
+    setTimeout(() => marker.remove(), 900);
+    return;
+  }
+
+  // Size the marker so it reads clearly at whatever zoom it'll be seen
+  // at: the destination zoom for a held "target" reveal, or the current
+  // zoom for a quick "correct" flash.
+  const k = kind === "target"
+    ? ISLANDS[game.targetIndex].zoom
+    : (d3.zoomTransform(svg.node()).k || 1);
+  const r = Math.max(2.2, 9 / k);
+
+  marker.append("circle").attr("class", "island-marker-ring").attr("r", r);
+  marker.append("circle").attr("class", "island-marker-dot").attr("r", Math.max(1.4, r * 0.4));
+
+  const life = kind === "target" ? ISLAND_REVEAL_HOLD_MS : 800;
+  setTimeout(() => marker.remove(), life);
+}
+
+function revealIsland(index) {
+  const target = ISLANDS[index];
+  const point = projection([target.lon, target.lat]);
+  if (!point) return;
+  const [x, y] = point;
+
+  dropIslandMarker(target.lon, target.lat, "target");
+
+  const scale = Math.min(MAX_SCALE * 0.7, target.zoom);
+  const tx = width / 2 - scale * x;
+  const ty = height / 2 - scale * y;
+
+  svg.transition().duration(ISLAND_REVEAL_ZOOM_MS).ease(d3.easeCubicInOut).call(
+    zoomBehavior.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+}
+
 function finishTurn(wasCorrect) {
   syncStats();
-  const delay = wasCorrect ? 500 : REVEAL_HOLD_MS;
+  const isIslands = gameMode === "islands";
+  const wrongHold = isIslands ? ISLAND_REVEAL_HOLD_MS : REVEAL_HOLD_MS;
+  const delay = wasCorrect ? 500 : wrongHold;
 
   setTimeout(() => {
     if (game.mistakes >= MAX_MISTAKES) { endGame("mistakes"); return; }
     if (!game.remaining.length) { endGame("completed"); return; }
     if (!wasCorrect) {
-      svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+      const backMs = isIslands ? ISLAND_SNAP_BACK_MS : 400;
+      svg.transition().duration(backMs).call(zoomBehavior.transform, d3.zoomIdentity);
     }
     pickNext();
   }, delay);
@@ -710,11 +983,12 @@ function finishTurn(wasCorrect) {
 
 function endGame(reason) {
   game.active = false;
+  game.locked = false;
   syncSkipDisabled(true);
   const endEmoji = reason === "completed" ? "🏆" : "🏁";
   syncPrompt(endEmoji);
 
-  saveResult(game.score, game.mistakes, sovereignIndices.length, reason === "completed");
+  saveResult(game.score, game.mistakes, totalForMode(), reason === "completed");
   showResult(reason);
 }
 
@@ -732,11 +1006,13 @@ function showToast(msg, kind) {
 /* ---------- Result overlay ---------- */
 
 function showResult(reason) {
-  els.resultTitle.textContent =
-    reason === "completed" ? "You placed every country!" : "Game over — 5 misses";
-  els.resultScore.textContent = `${game.score} / ${sovereignIndices.length}`;
+  const isIslands = gameMode === "islands";
+  els.resultTitle.textContent = reason === "completed"
+    ? (isIslands ? "You placed every island!" : "You placed every country!")
+    : "Game over — 5 misses";
+  els.resultScore.textContent = `${game.score} / ${totalForMode()}`;
   els.resultCopy.textContent = reason === "completed"
-    ? "Every country on the map, found. That's a full round."
+    ? (isIslands ? "Every island on the map, found. That's a full round." : "Every country on the map, found. That's a full round.")
     : "Every round sharpens your map sense. Go again?";
   els.resultOverlay.classList.add("show");
 }
@@ -745,8 +1021,11 @@ function closeResult() { els.resultOverlay.classList.remove("show"); }
 /* ---------- Persistence ---------- */
 
 let storageAvailable = true;
-let memoryHistory = [];
-let memoryHighScore = 0;
+// Countries and Islands are tracked as separate high scores/history —
+// they're different quizzes with different totals, so mixing them into
+// one leaderboard wouldn't mean anything.
+let memoryHistory = { countries: [], islands: [] };
+let memoryHighScore = { countries: 0, islands: 0 };
 
 (function checkStorage() {
   try {
@@ -759,29 +1038,32 @@ let memoryHighScore = 0;
   }
 })();
 
+function historyKey() { return gameMode === "islands" ? STORAGE_HISTORY_KEY_ISLANDS : STORAGE_HISTORY_KEY; }
+function highKey() { return gameMode === "islands" ? STORAGE_HIGH_KEY_ISLANDS : STORAGE_HIGH_KEY; }
+
 function readHistory() {
-  if (!storageAvailable) return memoryHistory;
-  try { return JSON.parse(localStorage.getItem(STORAGE_HISTORY_KEY) || "[]"); }
-  catch (err) { return memoryHistory; }
+  if (!storageAvailable) return memoryHistory[gameMode];
+  try { return JSON.parse(localStorage.getItem(historyKey()) || "[]"); }
+  catch (err) { return memoryHistory[gameMode]; }
 }
 
 function writeHistory(history) {
-  memoryHistory = history;
+  memoryHistory[gameMode] = history;
   if (!storageAvailable) return;
-  try { localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(history)); }
+  try { localStorage.setItem(historyKey(), JSON.stringify(history)); }
   catch (err) { console.warn("Could not save history.", err); }
 }
 
 function readHighScore() {
-  if (!storageAvailable) return memoryHighScore;
-  try { return Number(localStorage.getItem(STORAGE_HIGH_KEY) || 0); }
-  catch (err) { return memoryHighScore; }
+  if (!storageAvailable) return memoryHighScore[gameMode];
+  try { return Number(localStorage.getItem(highKey()) || 0); }
+  catch (err) { return memoryHighScore[gameMode]; }
 }
 
 function writeHighScore(value) {
-  memoryHighScore = value;
+  memoryHighScore[gameMode] = value;
   if (!storageAvailable) return;
-  try { localStorage.setItem(STORAGE_HIGH_KEY, String(value)); }
+  try { localStorage.setItem(highKey(), String(value)); }
   catch (err) { console.warn("Could not save high score.", err); }
 }
 
@@ -798,7 +1080,7 @@ function saveResult(score, mistakes, total, completed) {
 function loadHighScore() {
   const high = readHighScore();
   els.highScoreNumber.textContent = high;
-  els.highScoreOutof.textContent = `of ${sovereignIndices.length || "—"} countries`;
+  els.highScoreOutof.textContent = `of ${totalForMode() || "—"} ${gameMode === "islands" ? "islands" : "countries"}`;
 }
 
 function renderHistory() {
