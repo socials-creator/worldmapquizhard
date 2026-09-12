@@ -1,6 +1,26 @@
 # Where in the World 🌐
 
-A modern, pinch-zoomable geography game: you're given a country name and you tap it on the map. Built as static HTML/CSS/JS — no build step, no backend, deploys straight to GitHub Pages.
+A modern, pinch-zoomable geography game with two modes: **Countries** (tap the named country) and **Islands** (tap the real-world location of a named island, from Australia down to tiny Pacific atolls). Built as static HTML/CSS/JS — no build step, no backend, deploys straight to GitHub Pages.
+
+---
+
+## V12 changes (Islands mode + dark ocean)
+
+**New: Islands mode.**
+
+A mode toggle (Countries / Islands) sits next to New Game in both the portrait control row and the landscape sidebar. Islands mode quizzes ~55 islands worldwide — from giants like Australia and Greenland down to Pacific atolls like Nauru, Funafuti, and Pitcairn.
+
+Islands aren't separate tappable shapes in the underlying `world-atlas` country topology (most are fused into a bigger country polygon, or don't exist at all at 50m resolution), so this mode works differently under the hood:
+
+- Each island is stored as a point (`lon`/`lat`) plus a size `tier` in the `ISLANDS` array in `script.js`.
+- A tap is scored by real-world distance (haversine, in km) from the click to the target's coordinate, not by which country shape was under the finger. Tolerance radius scales with tier — generous for Australia, tight for a coral atoll.
+- Misses and skips reveal the answer with a **slower, held zoom-in animation** (`ISLAND_REVEAL_ZOOM_MS` / `ISLAND_REVEAL_HOLD_MS`, ~1.5s ease + ~2.8s hold — noticeably slower than the Countries reveal) onto a pulsing point marker, so there's real time to register where it actually was before the next round.
+- Islands mode keeps its own high score and Last 10 history (`geoGame.*.islands.v1` in `localStorage`), separate from Countries, since the two quizzes have different totals and aren't comparable.
+- Switching modes mid-round ends the current round without saving it (it wasn't finished) — press New Game again to start the new mode.
+
+**Changed: ocean background.**
+
+The map background (previously a light teal gradient) is now a solid dark `#1C1C1C`, reusing the `--darkmode` CSS variable that already existed in `:root`.
 
 ---
 
@@ -48,20 +68,22 @@ Fixed critical bug where `countries-10m.json` (not published in the CDN package)
 
 ## Features
 
-- **New game** always visible — a round runs until you've placed every country or reach **5 misses**.
-- **Landscape sidebar** on mobile — stats, skip, new game, and history visible at all times without overlays.
-- **Last 10 games** always visible (portrait strip / landscape sidebar), and **highest score ever** in the ☰ drawer — saved in `localStorage`. If blocked, the game still plays fully (just no cross-session persistence).
+- **Two game modes** — Countries (tap the named country's shape) and **Islands** (tap the named island's real-world location, from Australia down to tiny Pacific atolls). Toggle lives next to New Game.
+- **New game** always visible — a round runs until you've placed every country/island or reach **5 misses**.
+- **Landscape sidebar** on mobile — stats, skip, new game, mode toggle, and history visible at all times without overlays.
+- **Last 10 games** always visible (portrait strip / landscape sidebar), and **highest score ever** in the ☰ drawer — saved in `localStorage`, tracked separately per mode. If blocked, the game still plays fully (just no cross-session persistence).
 - **No two neighboring countries share a color** — computed from border adjacency at load time, re-rolled each new game.
 - **Disputed regions** (Aksai Chin, Pakistan-administered Kashmir etc.) drawn with India's color, excluded from quiz.
-- **Pinch-to-zoom and drag-to-pan**, up to 40×. Invisible wider tap margin for thin/small countries.
-- **Miss or skip** → map pans and zooms to the correct country, pulsing its border.
-- Warm editorial style (Fraunces serif + Inter body).
+- **Pinch-to-zoom and drag-to-pan**, up to 4000×. Invisible wider tap margin for thin/small countries.
+- **Miss or skip (Countries)** → map pans and zooms to the correct country, pulsing its border.
+- **Miss or skip (Islands)** → a slower, held zoom-in onto a pulsing point marker at the real location — see V12 notes above.
+- Dark ocean (`#1C1C1C`) with a warm editorial style on the UI chrome (Fraunces serif + Inter body).
 
 ---
 
 ## Territories and dependencies
 
-Quiz targets ~197 sovereign countries (193 UN members + Vatican, Palestine, Kosovo, Taiwan). Territories are filtered via `EXCLUDE_FROM_QUIZ` and colored as their parent country via `DEPENDENCY_PARENT`.
+Quiz targets ~197 sovereign countries (193 UN members + Vatican, Palestine, Kosovo, Taiwan). Territories are filtered via `EXCLUDE_FROM_QUIZ` and colored as their parent country via `DEPENDENCY_PARENT`. (Islands mode is unaffected by this list — it has its own separate `ISLANDS` dataset.)
 
 ---
 
@@ -107,12 +129,15 @@ python3 -m http.server 8000
 | What | Where |
 |---|---|
 | Country dataset | `WORLD_URL` in `script.js` |
+| Islands dataset (add/edit islands) | `ISLANDS` array in `script.js` |
+| Island size tiers (tap tolerance + reveal zoom) | `ISLAND_TIERS` in `script.js` |
+| Islands reveal animation speed/hold | `ISLAND_REVEAL_ZOOM_MS` / `ISLAND_REVEAL_HOLD_MS` |
 | Max misses | `MAX_MISTAKES` |
-| Continent jump frequency | `SAME_CONTINENT_PROBABILITY` (0–1) |
+| Continent/region jump frequency | `SAME_CONTINENT_PROBABILITY` (0–1) |
 | Tap tolerance | `TAP_MAX_MOVE_PX` / `TAP_MAX_DURATION_MS` |
 | Color palette | `PALETTE` array |
 | Disputed outlines | `DISPUTED_REGIONS` constant |
-| Fonts / colors | `:root` variables in `style.css` |
+| Fonts / colors / ocean background | `:root` variables in `style.css` (ocean is `--darkmode`) |
 | Landscape sidebar width | `--ls-sidebar-width` CSS variable |
 
 ---
