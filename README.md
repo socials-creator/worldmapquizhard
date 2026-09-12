@@ -4,7 +4,7 @@ A modern, pinch-zoomable geography game with two modes: **Countries** (tap the n
 
 ---
 
-## V12 changes (Islands mode + dark ocean)
+## V14 changes (Islands mode + dark ocean)
 
 **New: Islands mode.**
 
@@ -22,7 +22,7 @@ Islands aren't separate tappable shapes in the underlying `world-atlas` country 
 
 The map background (previously a light teal gradient) is now a solid dark `#1C1C1C`, reusing the `--darkmode` CSS variable that already existed in `:root`.
 
----
+## ---PREVIOUS STABLE VERSION V13---
 
 ## V11 changes (landscape iOS fixes + landscape UX overhaul)
 
