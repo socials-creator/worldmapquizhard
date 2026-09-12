@@ -23,7 +23,7 @@
      can give the map the full width if they want.
    ============================================================ */
 
-const WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json";
+const WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 const MAX_MISTAKES = 5;
 const SAME_CONTINENT_PROBABILITY = 0.72;
 const REVEAL_ZOOM_MS = 650;
@@ -105,11 +105,8 @@ const EXCLUDE_FROM_QUIZ = new Set([
   "Cook Islands","Niue","Tokelau","Svalbard","Svalbard and Jan Mayen",
   "Åland","Aland","Åland Islands",
   "Western Sahara","W. Sahara","Somaliland","N. Cyprus","Northern Cyprus",
-  "Akrotiri and Dhekelia","Akrotiri","Dhekelia","Bouvet Island",
-  "Heard Island and McDonald Islands","French Southern Territories",
-  "Cyprus U.N. Buffer Zone","Coral Sea Is.","Spratly Is.","Clipperton I.",
-  "Baikonur","Bajo Nuevo Bank","Serranilla Bank","Scarborough Reef",
-  "USNB Guantanamo Bay",
+  "Akrotiri and Dhekelia","Bouvet Island","Heard Island and McDonald Islands",
+  "French Southern Territories",
 ]);
 
 const DEPENDENCY_PARENT = {

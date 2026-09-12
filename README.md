@@ -4,16 +4,6 @@ A modern, pinch-zoomable geography game with two modes: **Countries** (tap the n
 
 ---
 
-## V13 changes (higher-resolution map)
-
-**Changed: country data upgraded from 50m to 10m resolution.**
-
-`WORLD_URL` in `script.js` now points at `world-atlas@2/countries-10m.json` instead of `countries-50m.json`. Same Natural Earth source, same `properties.name` schema, just the 1:10m large-scale cut instead of 1:50m — meaningfully more realistic coastlines and many more small islands rendered as part of each country's shape. No gameplay, coloring, or projection logic changed; this is a data-source swap only.
-
-The 10m dataset also includes a handful of tiny non-country slivers (leftover treaty zones, disputed reefs, etc. — e.g. Dhekelia, Akrotiri, Spratly Is., Scarborough Reef, Baikonur) that don't exist at 50m resolution. These were added to `EXCLUDE_FROM_QUIZ` alongside the existing territories so the quiz still targets the same ~197 sovereign countries as before.
-
----
-
 ## V12 changes (Islands mode + dark ocean)
 
 **New: Islands mode.**
