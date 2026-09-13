@@ -96,13 +96,14 @@ Jammu & Kashmir, Ladakh, Aksai Chin, Shaksgam Valley, and Pakistan-administered 
 ## Files
 
 ```
-index.html    structure
-style.css     styling (portrait + landscape layouts)
-script.js     map rendering + game logic + coordinate conversion
-README.md     this file
+index.html      structure
+style.css       styling (portrait + landscape layouts)
+script.js       map rendering + game logic + coordinate conversion
+world.geojson   country boundaries + precomputed adjacency
+README.md       this file
 ```
 
-Map data loads from a public CDN (`world-atlas@2`, Natural Earth 50m).
+Map data loads from a bundled local file, `world.geojson` (Natural Earth 1:50m admin-0 countries, with India/Pakistan/China boundaries reflecting India's official claim — see "A note on borders" below). Country-adjacency data (used by the no-two-neighbors-share-a-color rule) is precomputed and stored in each feature's `properties.neighbors`.
 
 ---
 
@@ -117,7 +118,7 @@ python3 -m http.server 8000
 ## Publish on GitHub Pages
 
 1. Create a new GitHub repo.
-2. Add the four files to the repo root.
+2. Add the five files to the repo root (including `world.geojson`).
 3. Push to `main`.
 4. In repo Settings → Pages → Source: Deploy from branch `main` / `/ (root)`.
 5. Live URL: `https://<username>.github.io/<repo>/`
@@ -128,7 +129,7 @@ python3 -m http.server 8000
 
 | What | Where |
 |---|---|
-| Country dataset | `WORLD_URL` in `script.js` |
+| Country dataset | `WORLD_URL` in `script.js` (points to `world.geojson`) |
 | Islands dataset (add/edit islands) | `ISLANDS` array in `script.js` |
 | Island size tiers (tap tolerance + reveal zoom) | `ISLAND_TIERS` in `script.js` |
 | Islands reveal animation speed/hold | `ISLAND_REVEAL_ZOOM_MS` / `ISLAND_REVEAL_HOLD_MS` |
@@ -136,7 +137,7 @@ python3 -m http.server 8000
 | Continent/region jump frequency | `SAME_CONTINENT_PROBABILITY` (0–1) |
 | Tap tolerance | `TAP_MAX_MOVE_PX` / `TAP_MAX_DURATION_MS` |
 | Color palette | `PALETTE` array |
-| Disputed outlines | `DISPUTED_REGIONS` constant |
+| Territories excluded from the quiz / colored as a parent country | `EXCLUDE_FROM_QUIZ` / `DEPENDENCY_PARENT` in `script.js` |
 | Fonts / colors / ocean background | `:root` variables in `style.css` (ocean is `--darkmode`) |
 | Landscape sidebar width | `--ls-sidebar-width` CSS variable |
 
@@ -144,4 +145,12 @@ python3 -m http.server 8000
 
 ## A note on borders
 
-Uses Natural Earth via `world-atlas` — neutral reference boundaries, not any single country's official claims. Disputed areas use simplified hand-drawn approximations for gameplay.
+Uses a Natural Earth 1:50m base with a custom India/Pakistan/China boundary reflecting India's official claim (Jammu & Kashmir, Ladakh, Aksai Chin, and Pakistan-administered Kashmir are drawn as part of India; the small Siachen Glacier area is its own map feature, colored and excluded from the quiz the same way other India-adjacent territories are). Borders are simplified reference lines for gameplay, not a legal or political statement.
+
+## V13 changes (new base map + India-claim boundary)
+
+- Replaced the CDN-hosted `world-atlas` TopoJSON with a bundled `world.geojson` file, so the map no longer depends on a third-party CDN for country shapes.
+- India, Pakistan, and China now use a boundary reflecting India's official claim, baked directly into the country geometry — this replaces the old `DISPUTED_REGIONS` hand-drawn overlay (Jammu & Kashmir/Ladakh/Aksai Chin/Shaksgam Valley/Pakistan-administered Kashmir), which has been removed since it's no longer needed and would have misaligned with the new base shapes.
+- Siachen Glacier ships as its own small feature in the dataset; it's mapped to India via `DEPENDENCY_PARENT` (like Hong Kong→China or Puerto Rico→USA already were), so it always matches India's color and is excluded from the quiz — no special-case code needed.
+- Country-adjacency (for the no-two-neighbors-share-a-color rule) is precomputed offline from the new geometry and shipped inside `world.geojson` as each feature's `properties.neighbors`, since the new file is plain GeoJSON rather than TopoJSON and doesn't carry shared-topology data. `topojson-client` is no longer loaded in `index.html`.
+- A handful of territory names specific to this dataset (e.g. `Faeroe Is.`, `Cook Is.`, `Br. Indian Ocean Ter.`) were added to `EXCLUDE_FROM_QUIZ` / `DEPENDENCY_PARENT` so they behave the same as their long-form equivalents did before.

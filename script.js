@@ -23,7 +23,7 @@
      can give the map the full width if they want.
    ============================================================ */
 
-const WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
+const WORLD_URL = "./world.geojson";
 const MAX_MISTAKES = 5;
 const SAME_CONTINENT_PROBABILITY = 0.72;
 const REVEAL_ZOOM_MS = 650;
@@ -46,42 +46,6 @@ const STORAGE_HISTORY_KEY = "geoGame.history.v6";
 const STORAGE_HIGH_KEY = "geoGame.highScore.v6";
 const STORAGE_HISTORY_KEY_ISLANDS = "geoGame.history.islands.v1";
 const STORAGE_HIGH_KEY_ISLANDS = "geoGame.highScore.islands.v1";
-
-/* ---------- Disputed regions (Kashmir etc.) ---------- */
-
-const DISPUTED_REGIONS = [
-  {
-    name: "Jammu & Kashmir",
-    coordinates: [[[ [74.50,32.20],[75.20,32.30],[76.10,32.50],[76.80,33.20],[76.95,34.20],[77.25,35.00],[76.95,35.85],[76.35,36.40],[75.65,36.60],[75.10,36.30],[74.75,35.50],[74.40,34.80],[74.50,32.20] ]]]
-  },
-  {
-    name: "Ladakh",
-    coordinates: [[[ [77.25,32.80],[78.60,32.50],[79.20,33.05],[79.65,34.00],[80.05,35.20],[79.75,36.05],[78.85,35.95],[77.95,35.30],[77.45,34.50],[77.25,32.80] ]]]
-  },
-  {
-    name: "Aksai Chin",
-    coordinates: [[[ [78.40,34.90],[79.00,34.30],[79.50,34.05],[80.20,34.25],[80.50,34.95],[80.10,35.40],[79.40,35.60],[78.70,35.35],[78.40,34.90] ]]]
-  },
-  {
-    name: "Shaksgam Valley",
-    coordinates: [[[ [75.80,35.85],[76.45,35.70],[77.10,36.20],[76.70,36.85],[76.05,36.70],[75.80,35.85] ]]]
-  },
-  {
-    name: "Pakistan-administered Kashmir",
-    coordinates: [[[ [73.10,33.80],[74.00,33.40],[74.90,33.60],[75.80,34.35],[76.90,35.00],[77.10,36.00],[76.60,36.80],[75.60,36.90],[74.40,36.75],[73.40,36.05],[72.85,34.90],[73.10,33.80] ]]]
-  }
-];
-
-const disputedFeatureCollection = {
-  type: "FeatureCollection",
-  features: DISPUTED_REGIONS.map(r => ({
-    type: "Feature",
-    properties: { name: r.name },
-    geometry: { type: "Polygon", coordinates: r.coordinates }
-  }))
-};
-
-let indiaColorIndex = -1;
 
 /* ---------- Territories excluded from quiz ---------- */
 
@@ -107,21 +71,30 @@ const EXCLUDE_FROM_QUIZ = new Set([
   "Western Sahara","W. Sahara","Somaliland","N. Cyprus","Northern Cyprus",
   "Akrotiri and Dhekelia","Bouvet Island","Heard Island and McDonald Islands",
   "French Southern Territories",
+  // --- exact NAME strings used by the new world.geojson dataset ---
+  "N. Mariana Is.","S. Geo. and the Is.","Br. Indian Ocean Ter.",
+  "Pitcairn Is.","Cook Is.","St. Pierre and Miquelon","Wallis and Futuna Is.",
+  "St-Martin","St-Barthélemy","Fr. Polynesia","Faeroe Is.",
+  "Indian Ocean Ter.","Heard I. and McDonald Is.","Ashmore and Cartier Is.",
+  "Siachen Glacier",
 ]);
 
 const DEPENDENCY_PARENT = {
-  "Greenland":"Denmark","Faroe Islands":"Denmark","Faroe Is.":"Denmark",
+  "Greenland":"Denmark","Faroe Islands":"Denmark","Faroe Is.":"Denmark","Faeroe Is.":"Denmark",
   "Puerto Rico":"United States of America",
   "American Samoa":"United States of America",
   "Guam":"United States of America",
   "Northern Mariana Islands":"United States of America","N. Mariana Islands":"United States of America",
+  "N. Mariana Is.":"United States of America",
   "United States Virgin Islands":"United States of America",
   "U.S. Virgin Islands":"United States of America","U.S. Virgin Is.":"United States of America",
   "French Guiana":"France","Guadeloupe":"France","Martinique":"France",
   "Mayotte":"France","Réunion":"France","Reunion":"France",
-  "French Polynesia":"France","New Caledonia":"France",
+  "French Polynesia":"France","New Caledonia":"France","Fr. Polynesia":"France",
   "Saint Pierre and Miquelon":"France","Wallis and Futuna":"France",
+  "St. Pierre and Miquelon":"France","Wallis and Futuna Is.":"France",
   "Saint Barthelemy":"France","Saint Martin":"France",
+  "St-Martin":"France","St-Barthélemy":"France",
   "Fr. S. Antarctic Lands":"France","French Southern and Antarctic Lands":"France",
   "Hong Kong":"China","Hong Kong S.A.R.":"China",
   "Macao":"China","Macau":"China","Macau S.A.R.":"China",
@@ -133,17 +106,25 @@ const DEPENDENCY_PARENT = {
   "Jersey":"United Kingdom","Guernsey":"United Kingdom",
   "Anguilla":"United Kingdom","Montserrat":"United Kingdom",
   "Saint Helena":"United Kingdom","Saint Helena, Ascension and Tristan da Cunha":"United Kingdom",
-  "British Indian Ocean Territory":"United Kingdom",
-  "Pitcairn Islands":"United Kingdom","Pitcairn":"United Kingdom",
-  "South Georgia and the Islands":"United Kingdom",
+  "British Indian Ocean Territory":"United Kingdom","Br. Indian Ocean Ter.":"United Kingdom",
+  "Pitcairn Islands":"United Kingdom","Pitcairn":"United Kingdom","Pitcairn Is.":"United Kingdom",
+  "South Georgia and the Islands":"United Kingdom","S. Geo. and the Is.":"United Kingdom",
   "South Georgia and South Sandwich Islands":"United Kingdom",
   "Aruba":"Netherlands","Curaçao":"Netherlands","Curacao":"Netherlands",
   "Sint Maarten":"Netherlands","Bonaire":"Netherlands","Sint Eustatius":"Netherlands",
   "Norfolk Island":"Australia","Christmas Island":"Australia",
   "Cocos Islands":"Australia","Cocos (Keeling) Islands":"Australia",
-  "Cook Islands":"New Zealand","Niue":"New Zealand","Tokelau":"New Zealand",
+  "Indian Ocean Ter.":"Australia","Heard I. and McDonald Is.":"Australia",
+  "Ashmore and Cartier Is.":"Australia",
+  "Cook Islands":"New Zealand","Niue":"New Zealand","Tokelau":"New Zealand","Cook Is.":"New Zealand",
   "Svalbard":"Norway","Svalbard and Jan Mayen":"Norway",
   "Åland":"Finland","Aland":"Finland","Åland Islands":"Finland",
+  // Disputed Kashmir sliver — the new dataset bakes India's official-claim
+  // boundary directly into India's polygon, and represents the small
+  // Siachen Glacier area as its own feature. Coloring it as India (and
+  // excluding it from the quiz, above) reproduces the old behavior without
+  // needing a separate hand-drawn overlay layer.
+  "Siachen Glacier":"India",
 };
 
 /* ---------- Islands mode data ----------
@@ -326,7 +307,6 @@ let height = 0;
 const svg = d3.select("#map").append("svg");
 const g = svg.append("g");
 const countryLayer = g.append("g").attr("class", "country-layer");
-const disputedLayer = g.append("g").attr("class", "disputed-layer");
 const hitLayer = g.append("g").attr("class", "hit-layer");
 // Islands-mode point markers. Sits above the hit layer but is fully
 // pointer-events:none (see CSS) so it never steals a tap from the map.
@@ -380,7 +360,6 @@ function handleResize() {
   projection.fitSize([width, height], { type: "Sphere" });
 
   countryLayer.selectAll("path.country").attr("d", path);
-  disputedLayer.selectAll("path.disputed-region").attr("d", path);
   hitLayer.selectAll("path.hit-target").attr("d", path);
   // Island markers are positioned from raw projected coordinates, not
   // redrawn via `path`, so a resize invalidates them — just clear them.
@@ -460,26 +439,31 @@ function resolveSovereignIndex(i) {
 
 /* ---------- Load data ---------- */
 
-d3.json(WORLD_URL).then((world) => {
-  const objectKey = Object.keys(world.objects)[0];
-  const collection = topojson.feature(world, world.objects[objectKey]);
-  const rawNeighbors = topojson.neighbors(world.objects[objectKey].geometries);
-
+d3.json(WORLD_URL).then((collection) => {
+  // world.geojson is a plain GeoJSON FeatureCollection (not TopoJSON), so
+  // no topojson.feature()/topojson.neighbors() step is needed — it's ready
+  // to use as-is. Country adjacency (for the "no two neighbors share a
+  // color" rule) was precomputed offline and is baked into each feature as
+  // properties.neighbors (a list of neighbor country names), resolved to
+  // indices below once nameToIndex exists.
   const keepIndex = [];
   collection.features.forEach((f, i) => {
     if (f.geometry && f.properties.name !== "Antarctica") keepIndex.push(i);
   });
   features = keepIndex.map(i => collection.features[i]);
 
-  const oldToNew = new Map(keepIndex.map((oldI, newI) => [oldI, newI]));
-  neighborsOf = keepIndex.map((oldI) =>
-    rawNeighbors[oldI].filter(n => oldToNew.has(n)).map(n => oldToNew.get(n))
-  );
-
   nameOf = features.map(f => f.properties.name);
   continentOf = features.map(f => continentFromCentroid(d3.geoCentroid(f)));
 
   const nameToIndex = new Map(nameOf.map((n, i) => [n, i]));
+
+  neighborsOf = features.map((f) => {
+    const neighborNames = f.properties.neighbors || [];
+    return neighborNames
+      .map(n => nameToIndex.get(n))
+      .filter(i => i !== undefined);
+  });
+
   parentIndexOf = nameOf.map((name) => {
     const parentName = DEPENDENCY_PARENT[name];
     return (parentName && nameToIndex.has(parentName)) ? nameToIndex.get(parentName) : null;
@@ -646,20 +630,6 @@ function drawMap() {
     })
     .on("pointercancel", () => { pointerDownInfo = null; })
     .on("pointerleave", () => { pointerDownInfo = null; });
-
-  // --- Disputed regions overlay ---
-  try {
-    const indiaIndex = features.findIndex(f => f.properties.name === "India");
-    indiaColorIndex = indiaIndex >= 0 ? features[indiaIndex].__colorIndex : 0;
-    disputedLayer.selectAll("path.disputed-region")
-      .data(disputedFeatureCollection.features)
-      .join("path")
-      .attr("class", "disputed-region")
-      .attr("d", path)
-      .attr("fill", colorForIndex(indiaColorIndex));
-  } catch (err) {
-    console.warn("Non-fatal: disputed-region overlay failed.", err);
-  }
 }
 
 /* Convert a client-space coordinate (from a pointer event) into the SVG's
@@ -777,9 +747,6 @@ function startGame() {
   if (gameMode === "countries") {
     assignColors();
     countryLayer.selectAll("path.country").attr("fill", d => colorForIndex(d.__colorIndex));
-    const indiaIdxForRepaint = features.findIndex(f => f.properties.name === "India");
-    indiaColorIndex = indiaIdxForRepaint >= 0 ? features[indiaIdxForRepaint].__colorIndex : 0;
-    disputedLayer.selectAll("path.disputed-region").attr("fill", colorForIndex(indiaColorIndex));
   }
   markerLayer.selectAll("*").remove();
 
